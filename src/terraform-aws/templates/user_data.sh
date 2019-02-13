@@ -13,7 +13,7 @@ node.master: ${master}
 node.data: ${data}
 node.ingest: ${data}
 http.enabled: ${http_enabled}
-xpack.security.enabled: ${security_enabled}
+xpack.security.enabled: ${sbecurity_enabled}
 xpack.monitoring.enabled: ${monitoring_enabled}
 path.data: ${elasticsearch_data_dir}
 path.logs: ${elasticsearch_logs_dir}
@@ -37,14 +37,6 @@ discovery:
 EOF
 fi
 
-# Azure doesn't have a proper discovery plugin, hence we are going old-school and relying on scaleset name prefixes
-if [ "${cloud_provider}" == "azure" ]; then
-        cat <<'EOF' >>/etc/elasticsearch/elasticsearch.yml
-network.host: _site_,localhost
-
-# For discovery we are using predictable hostnames (thanks for the computer name prefix), but could just as well use the
-# predictable subnet addresses starting at 10.1.0.5.
-EOF
 
     # avoiding discovery noise in single-node scenario
     if [ "${minimum_master_nodes}" == "1" ]; then
@@ -56,28 +48,28 @@ EOF
 discovery.zen.ping.unicast.hosts: ["${es_cluster}-master000000", "${es_cluster}-master000001", "${es_cluster}-master000002", "${es_cluster}-data000000", "${es_cluster}-data000001"]
 EOF
     fi
-fi
+#fi
+#
+#cat <<'EOF' >>/etc/security/limits.conf
+#
+## allow user 'elasticsearch' mlockall
+#elasticsearch soft memlock unlimited
+#elasticsearch hard memlock unlimited
+#EOF
 
-cat <<'EOF' >>/etc/security/limits.conf
+#sudo mkdir -p /etc/systemd/system/elasticsearch.service.d
+#cat <<'EOF' >>/etc/systemd/system/elasticsearch.service.d/override.conf
+#[Service]
+#LimitMEMLOCK=infinity
+#Restart=always
+#RestartSec=10
+#EOF
 
-# allow user 'elasticsearch' mlockall
-elasticsearch soft memlock unlimited
-elasticsearch hard memlock unlimited
-EOF
-
-sudo mkdir -p /etc/systemd/system/elasticsearch.service.d
-cat <<'EOF' >>/etc/systemd/system/elasticsearch.service.d/override.conf
-[Service]
-LimitMEMLOCK=infinity
-Restart=always
-RestartSec=10
-EOF
-
-# Setup heap size and memory locking
-sudo sed -i 's/#MAX_LOCKED_MEMORY=.*$/MAX_LOCKED_MEMORY=unlimited/' /etc/init.d/elasticsearch
-sudo sed -i 's/#MAX_LOCKED_MEMORY=.*$/MAX_LOCKED_MEMORY=unlimited/' /etc/default/elasticsearch
-sudo sed -i "s/^-Xms.*/-Xms${heap_size}/" /etc/elasticsearch/jvm.options
-sudo sed -i "s/^-Xmx.*/-Xmx${heap_size}/" /etc/elasticsearch/jvm.options
+## Setup heap size and memory locking
+#sudo sed -i 's/#MAX_LOCKED_MEMORY=.*$/MAX_LOCKED_MEMORY=unlimited/' /etc/init.d/elasticsearch
+#sudo sed -i 's/#MAX_LOCKED_MEMORY=.*$/MAX_LOCKED_MEMORY=unlimited/' /etc/default/elasticsearch
+#sudo sed -i "s/^-Xms.*/-Xms${heap_size}/" /etc/elasticsearch/jvm.options
+#sudo sed -i "s/^-Xmx.*/-Xmx${heap_size}/" /etc/elasticsearch/jvm.options
 
 # Storage
 sudo mkdir -p ${elasticsearch_logs_dir}
